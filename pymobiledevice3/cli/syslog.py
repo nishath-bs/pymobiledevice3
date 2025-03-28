@@ -2,11 +2,13 @@ import logging
 import os
 import posixpath
 import re
+from typing import Optional, TextIO
 
 import click
 
 from pymobiledevice3.cli.cli_common import Command, get_last_used_terminal_formatting, user_requested_colored_output
 from pymobiledevice3.lockdown import LockdownClient
+from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.os_trace import OsTraceService, SyslogLogLevel
 from pymobiledevice3.services.syslog import SyslogService
 
@@ -14,14 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 @click.group()
-def cli():
-    """ syslog cli """
+def cli() -> None:
     pass
 
 
 @cli.group()
-def syslog():
-    """ syslog options """
+def syslog() -> None:
+    """ Watch syslog messages """
     pass
 
 
@@ -79,19 +80,10 @@ def format_line(color, pid, syslog_entry, include_label):
     return line
 
 
-@syslog.command('live', cls=Command)
-@click.option('-o', '--out', type=click.File('wt'), help='log file')
-@click.option('--pid', type=click.INT, default=-1, help='pid to filter. -1 for all')
-@click.option('-pn', '--process-name', help='process name to filter')
-@click.option('-m', '--match', multiple=True, help='match expression')
-@click.option('-mi', '--match-insensitive', multiple=True, help='insensitive match expression')
-@click.option('include_label', '--label', is_flag=True, help='should include label')
-@click.option('-e', '--regex', multiple=True, help='filter only lines matching given regex')
-@click.option('-ei', '--insensitive-regex', multiple=True, help='filter only lines matching given regex (insensitive)')
-def syslog_live(service_provider: LockdownClient, out, pid, process_name, match, match_insensitive,
-                include_label, regex, insensitive_regex):
-    """ view live syslog lines """
-
+def syslog_live(
+        service_provider: LockdownServiceProvider, out: Optional[TextIO], pid: Optional[int],
+        process_name: Optional[str], match: list[str], match_insensitive: list[str], include_label: bool,
+        regex: list[str], insensitive_regex: list[str]) -> None:
     match_regex = [re.compile(f'.*({r}).*', re.DOTALL) for r in regex]
     match_regex += [re.compile(f'.*({r}).*', re.IGNORECASE | re.DOTALL) for r in insensitive_regex]
 
@@ -105,6 +97,7 @@ def syslog_live(service_provider: LockdownClient, out, pid, process_name, match,
             if posixpath.basename(syslog_entry.filename) != process_name:
                 continue
 
+        line_no_style = format_line(False, pid, syslog_entry, include_label)
         line = format_line(user_requested_colored_output(), pid, syslog_entry, include_label)
 
         skip = False
@@ -137,7 +130,7 @@ def syslog_live(service_provider: LockdownClient, out, pid, process_name, match,
         if match_regex:
             skip = True
             for r in match_regex:
-                if not r.findall(line):
+                if not r.findall(line_no_style):
                     continue
                 line = re.sub(r, replace, line)
                 skip = False
@@ -148,7 +141,29 @@ def syslog_live(service_provider: LockdownClient, out, pid, process_name, match,
         print(line, flush=True)
 
         if out:
-            print(line, file=out, flush=True)
+            if user_requested_colored_output():
+                print(line, file=out, flush=True)
+            else:
+                print(line_no_style, file=out, flush=True)
+
+
+@syslog.command('live', cls=Command)
+@click.option('-o', '--out', type=click.File('wt'), help='log file')
+@click.option('--pid', type=click.INT, default=-1, help='pid to filter. -1 for all')
+@click.option('-pn', '--process-name', help='process name to filter')
+@click.option('-m', '--match', multiple=True, help='match expression')
+@click.option('-mi', '--match-insensitive', multiple=True, help='insensitive match expression')
+@click.option('include_label', '--label', is_flag=True, help='should include label')
+@click.option('-e', '--regex', multiple=True, help='filter only lines matching given regex')
+@click.option('-ei', '--insensitive-regex', multiple=True, help='filter only lines matching given regex (insensitive)')
+def cli_syslog_live(
+        service_provider: LockdownServiceProvider, out: Optional[TextIO], pid: Optional[int],
+        process_name: Optional[str], match: list[str], match_insensitive: list[str], include_label: bool,
+        regex: list[str], insensitive_regex: list[str]) -> None:
+    """ view live syslog lines """
+
+    syslog_live(service_provider, out, pid, process_name, match, match_insensitive, include_label, regex,
+                insensitive_regex)
 
 
 @syslog.command('collect', cls=Command)

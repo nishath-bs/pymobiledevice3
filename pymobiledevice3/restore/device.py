@@ -13,11 +13,11 @@ class Device:
 
     def __repr__(self) -> str:
         return (
-                f'<{self.__class__.__name__} '
-                f'ecid: {self.ecid} '
-                f'hardware_model: {self.hardware_model} '
-                f'image4-support: {self.is_image4_supported}>'
-            )
+            f'<{self.__class__.__name__} '
+            f'ecid: {self.ecid} '
+            f'hardware_model: {self.hardware_model} '
+            f'image4-support: {self.is_image4_supported}>'
+        )
 
     @cached_property
     def ecid(self):
@@ -38,14 +38,29 @@ class Device:
         return self.irecv.is_image4_supported
 
     @cached_property
+    def ap_parameters(self) -> dict:
+        if self.lockdown:
+            try:
+                return self.lockdown.get_value(key='ApParameters')
+            except MissingValueError:
+                pass
+        return {}
+
+    @cached_property
     def ap_nonce(self):
         if self.lockdown:
+            ap_nonce_from_ap_parameters = self.ap_parameters.get('ApNonce')
+            if ap_nonce_from_ap_parameters:
+                return ap_nonce_from_ap_parameters
             return self.lockdown.get_value(key='ApNonce')
         return self.irecv.ap_nonce
 
     @cached_property
     def sep_nonce(self):
         if self.lockdown:
+            sep_nonce_from_ap_parameters = self.ap_parameters.get('SepNonce')
+            if sep_nonce_from_ap_parameters:
+                return sep_nonce_from_ap_parameters
             return self.lockdown.get_value(key='SEPNonce')
         return self.irecv.sep_nonce
 
@@ -55,3 +70,9 @@ class Device:
             with suppress(MissingValueError):
                 return self.lockdown.preflight_info
         return None
+
+    @cached_property
+    def product_type(self) -> str:
+        if self.lockdown:
+            return self.lockdown.product_type
+        return self.irecv.product_type

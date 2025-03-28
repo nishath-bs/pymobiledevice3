@@ -68,12 +68,19 @@ SUPPORTED_DATA_TYPES = {
     'RestoreLocalPolicy': True,
     'AuthInstallCACert': True,
     'OverlayRootDataForKeyIndex': True,
+
+    # Added in iOS 18.0 beta1
+    'FirmwareUpdaterDataV3': True,
+    'MessageUseStreamedImageFile': True,
+    'UpdateVolumeOverlayRootDataCount': True,
+    'URLAsset': True,
 }
 
 # extracted from ac2
 SUPPORTED_MESSAGE_TYPES = {
     'BBUpdateStatusMsg': False,
     'CheckpointMsg': True,
+    'CrashLog': True,
     'DataRequestMsg': False,
     'FDRSubmit': True,
     'MsgType': False,
@@ -85,6 +92,11 @@ SUPPORTED_MESSAGE_TYPES = {
     'ReceivedFinalStatusMsg': False,
     'RestoredCrash': True,
     'StatusMsg': False,
+
+    # Added in iOS 18.0 beta1
+    'AsyncDataRequestMsg': True,
+    'AsyncWait': True,
+    'RestoreAttestation': True,
 }
 
 
@@ -155,6 +167,18 @@ class RestoreOptions:
             self.SystemImageType = 'User'
             self.UpdateBaseband = False
 
+            # Added for iOS 18.0 beta1
+            self.HostHasFixFor99053849 = True
+            self.SystemImageFormat = 'AEAWrappedDiskImage'
+            self.WaitForDeviceConnectionToFinishStateMachine = False
+            self.SupportedAsyncDataTypes = {
+                'BasebandData': False,
+                'RecoveryOSASRImage': False,
+                'StreamedImageDecryptionKey': False,
+                'SystemImageData': False,
+                'URLAsset': True
+            }
+
             if sep is not None:
                 required_capacity = sep.get('RequiredCapacity')
                 if required_capacity:
@@ -174,7 +198,17 @@ class RestoreOptions:
         if spp:
             spp = dict(spp)
         else:
-            spp = {'128': 1280, '16': 160, '32': 320, '64': 640, '8': 80}
+            spp = {
+                '1024': 1280,
+                '128': 1280,
+                '16': 160,
+                '256': 1280,
+                '32': 320,
+                '512': 1280,
+                '64': 640,
+                '768': 1280,
+                '8': 80
+            }
         self.SystemPartitionPadding = spp
 
     def to_dict(self):
